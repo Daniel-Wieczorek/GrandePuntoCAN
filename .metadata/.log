@@ -1,0 +1,43 @@
+!SESSION 2020-06-16 22:02:59.040 -----------------------------------------------
+eclipse.buildId=Version 1.1.0
+java.version=1.8.0_202
+java.vendor=AdoptOpenJdk
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=pl_PL
+Framework arguments:  E:\Projects\grandepunto\CANnetwork\.project
+Command-line arguments:  -os win32 -ws win32 -arch x86_64 E:\Projects\grandepunto\CANnetwork\.project
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2020-06-16 22:03:37.870
+!MESSAGE Log4j initialized with config file E:\Projects\grandepunto\.metadata\.log4j.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2020-06-16 22:03:41.573
+!MESSAGE Started RMI Server, listening on port 41337
+
+!ENTRY com.st.stm32cube.ide.mcu.toolchain 4 4 2020-06-16 22:03:44.534
+!MESSAGE Type or version is empty: ; 
+
+!ENTRY com.st.stm32cube.ide.mcu.toolchain 2 2 2020-06-16 22:03:44.537
+!MESSAGE Falling back to default toolchain
+
+!ENTRY com.st.stm32cube.ide.mcu.toolchain 4 4 2020-06-16 22:03:44.539
+!MESSAGE Type or version is empty: ; 
+
+!ENTRY com.st.stm32cube.ide.mcu.toolchain 2 2 2020-06-16 22:03:44.540
+!MESSAGE Falling back to default toolchain
+
+!ENTRY com.st.stm32cube.ide.mcu.toolchain 4 4 2020-06-16 22:03:44.542
+!MESSAGE Type or version is empty: ; 
+
+!ENTRY com.st.stm32cube.ide.mcu.toolchain 2 2 2020-06-16 22:03:44.542
+!MESSAGE Falling back to default toolchain
+
+!ENTRY com.st.stm32cube.ide.mcu.toolchain 4 4 2020-06-16 22:03:44.544
+!MESSAGE Type or version is empty: ; 
+
+!ENTRY com.st.stm32cube.ide.mcu.toolchain 2 2 2020-06-16 22:03:44.545
+!MESSAGE Falling back to default toolchain
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 4 4 2020-06-16 22:03:48.122
+!MESSAGE com.st.stm32cube.ide.mcu.ide/META-INF/version/build_ref file not found, build reference will not be reported into properties
+
+!ENTRY org.eclipse.cdt.core 1 0 2020-06-16 22:03:58.078
+!MESSAGE Indexed 'CANnetwork' (24 sources, 57 headers) in 12,9 sec: 7 260 declarations; 43 082 references; 19 unresolved inclusions; 332 syntax errors; 3 762 unresolved names (7%)
