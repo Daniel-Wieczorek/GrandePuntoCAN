@@ -26,6 +26,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <inttypes.h>
 #include "CanLibrary.h"
 /* USER CODE END Includes */
 
@@ -71,7 +73,13 @@ void HAL_CAN_TxMailbox2CompleteCallback(CAN_HandleTypeDef *hcan);
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan);
 //void HAL_CAN_RxFifo0FullCallback(CAN_HandleTypeDef *hcan);
 void HAL_CAN_ErrorCallback(CAN_HandleTypeDef *hcan);
-
+void ClearArray(uint8_t array[], uint32_t size);
+void Print_CAN_Frame(char CanFrameName[], uint32_t CanID, uint32_t CanDlc, uint8_t CANmsg[]);
+void parseFromUART(char CanFrame[]);
+uint8_t* convertToHex(char *string);
+void saveDataToFrame(CAN_MessageTypeDef canBuffer);
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart);
 
 /* USER CODE END PFP */
 
@@ -81,7 +89,11 @@ void HAL_CAN_ErrorCallback(CAN_HandleTypeDef *hcan);
 
 uint8_t CANmsg[8] = {0};
 uint8_t CANmsgPrintTx[8] = {0}; // char table only for printing from interrupts.
-
+uint8_t data_buffer[70];
+uint32_t count = 0;
+uint8_t rcvd_data;
+uint8_t flag_UART_TX_COMPLETED = 0;
+CAN_MessageTypeDef canUartBuffer;
 /* NOT USED
 uint8_t CANmsg_KeyON[] = {0x50,0x10};
 uint8_t CANmsg_EnvCond[] = {0xAA,0x66,0x00,0x00};
@@ -136,6 +148,8 @@ int main(void)
 	  Error_Handler("CAN start error");
   }
 
+HAL_UART_Receive_IT(&huart2, &rcvd_data, 1); // przerwanie obslugujące wiadomosci przychodzace po UART.
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -167,6 +181,9 @@ int main(void)
 	HAL_Delay(50);
 
 	HAL_Delay(20);
+
+		Print_CAN_Frame("Tx", IPC_Ligths.ID, IPC_Ligths.DLC, IPC_Ligths.CAN_Tx);
+		HAL_Delay(1000);
 
 	/*
 	  CAN_Tx(0xC3D4000,2,CANmsg_KeyON);
@@ -360,7 +377,7 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 500000;
+  huart2.Init.BaudRate = 115200;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
@@ -481,6 +498,35 @@ void CAN_Tx(uint32_t CanID, uint8_t CanDLC, uint8_t CANmsg[])
 
 }
 
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if (rcvd_data == '\r') {
+		data_buffer[count++] = '\r';
+		if (HAL_UART_Transmit_IT(&huart2, data_buffer, count) != HAL_OK)
+		{
+			Error_Handler("Error");
+		}
+	}
+	else
+	{
+		data_buffer[count++] = rcvd_data;
+	}
+	HAL_UART_Receive_IT(&huart2, &rcvd_data, 1);
+}
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if (count>0)
+	{
+		parseFromUART(data_buffer);
+		// ToDo SaveData to frame
+		ClearArray(data_buffer, 70);
+		count = 0;
+	}
+	flag_UART_TX_COMPLETED = 1;
+
+}
+
 /**
   * @brief by DWI: CAN RX handle function
   * @param None
@@ -590,6 +636,101 @@ void Error_Handler(char ErrorName[])
 
   /* USER CODE END Error_Handler_Debug */
 }
+
+void ClearArray(uint8_t array[], uint32_t size)
+{
+	for (int i = 0; i < size; ++i)
+	{
+		array[i] = 0;
+	}
+}
+
+void parseFromUART(char CanFrame[]) {
+    char parserInitialBuffer[6] = {0};
+    uint8_t index = 0;
+
+    while (CanFrame[index] != '|') {
+		parserInitialBuffer[index] = CanFrame[index];
+		index++;
+    }
+    parserInitialBuffer[index] = '\0';
+    if (strcmp(parserInitialBuffer, "CAN_Tx") == 0) {
+    	uint8_t bufferIndex = 0;
+        char parserIdBuffer[8] = {0};
+        char parserDlcBuffer[1] = {0};
+        char parserMessageBuffer[17] = {0};
+        uint8_t *p;
+
+        for ( ; CanFrame[index]!= '\r'; ++index) {
+            if (index > 12 && index <= 19) {
+                parserIdBuffer[bufferIndex] = CanFrame[index];
+                bufferIndex++;
+            }
+            else if (index == 26) {
+                parserDlcBuffer[0] = CanFrame[index];
+                bufferIndex = 0;
+            }
+            else if (index >= 36) {
+                if (CanFrame[index] == ' ')
+                    continue;
+                else {
+                    parserMessageBuffer[bufferIndex] = CanFrame[index];
+                    bufferIndex++;
+                }
+            }
+        }
+        canUartBuffer.DLC = parserDlcBuffer[0] - '0';
+        sscanf(parserIdBuffer, "%lX", &canUartBuffer.ID);
+
+        p = convertToHex(parserMessageBuffer);
+        for (size_t var = 0; var < canUartBuffer.DLC; var++) {
+        	canUartBuffer.CAN_Tx[var] = *(p+var);
+        }
+    }
+    else if (strcmp(parserInitialBuffer, "RESET") == 0) {
+        printf("Perform reset\n");
+    }
+    else if (strcmp(parserInitialBuffer, "FIL_CF") == 0) {
+        printf("Set Filer\n");
+    }
+    else {
+    	printf("Error\n");
+    }
+}
+
+uint8_t* convertToHex(char *string) {
+	    static uint8_t val[MAX_CAN_MESSAGE_SIZE];
+	    memset( val, 0, MAX_CAN_MESSAGE_SIZE*sizeof(uint8_t));
+
+	    uint8_t index = 0;
+	    while (*string) {
+	        // get current character then increment
+	        uint8_t byte = *string++;
+	        // transform hex character to the 4bit equivalent number, using the ascii table indexes
+	        if (byte >= '0' && byte <= '9') byte = byte - '0';
+	        else if (byte >= 'a' && byte <='f') byte = byte - 'a' + 10;
+	        else if (byte >= 'A' && byte <='F') byte = byte - 'A' + 10;
+	        // shift 4 to make space for new digit, and add the 4 bits of the new digit
+	        val[index/2] = (val[index/2] << 4) | (byte & 0xF);
+	        index++;
+	    }
+	    return val;
+}
+
+void saveDataToFrame(CAN_MessageTypeDef canBuffer)
+{
+
+	IPC_Ligths.ID = canBuffer.ID;
+	IPC_Ligths.DLC = canBuffer.DLC;
+
+	for(int i=0; i<IPC_Ligths.DLC;++i)
+	{
+		IPC_Ligths.CAN_Tx[i] = canBuffer.CAN_Tx[i];
+	}
+
+
+}
+
 
 #ifdef  USE_FULL_ASSERT
 /**

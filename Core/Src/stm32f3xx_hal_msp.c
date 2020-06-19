@@ -22,7 +22,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 /* USER CODE BEGIN Includes */
-
+#include "stm32f3xx_hal.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -69,6 +69,20 @@ void HAL_MspInit(void)
 
   __HAL_RCC_SYSCFG_CLK_ENABLE();
   __HAL_RCC_PWR_CLK_ENABLE();
+
+  // Low level processor specific initialization
+
+  	// 1. Set up the priority grouping of the arm cortex mx processor
+  	HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
+
+  	// 2. Enable the required interrups of the cortex mx processor
+  	SCB->SHCSR |= 0x7 << 16;
+
+  	// 3. Configure the priority of system exceptions
+  	HAL_NVIC_SetPriority(MemoryManagement_IRQn, 0,0);
+  	HAL_NVIC_SetPriority(BusFault_IRQn, 0,0);
+  	HAL_NVIC_SetPriority(UsageFault_IRQn, 0,0);
+
 
   /* System interrupt init*/
 
@@ -234,7 +248,6 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
   /* USER CODE END USART2_MspInit 0 */
     /* Peripheral clock enable */
     __HAL_RCC_USART2_CLK_ENABLE();
-  
     __HAL_RCC_GPIOA_CLK_ENABLE();
     /**USART2 GPIO Configuration    
     PA2     ------> USART2_TX
@@ -242,13 +255,17 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
     */
     GPIO_InitStruct.Pin = USART_TX_Pin|USART_RX_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     GPIO_InitStruct.Alternate = GPIO_AF7_USART2;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /* USER CODE BEGIN USART2_MspInit 1 */
-
+    GPIO_InitStruct.Pin = GPIO_PIN_3; // UART2 RX
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  
+  HAL_NVIC_EnableIRQ(USART2_IRQn);
+	HAL_NVIC_SetPriority(USART2_IRQn, 1,0);
   /* USER CODE END USART2_MspInit 1 */
   }
 

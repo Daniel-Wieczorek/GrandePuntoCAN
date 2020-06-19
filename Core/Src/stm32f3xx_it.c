@@ -45,6 +45,7 @@
 extern CAN_HandleTypeDef hcan;
 extern TIM_HandleTypeDef htim6;
 extern TIM_HandleTypeDef htim7;
+extern UART_HandleTypeDef huart2;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -188,7 +189,7 @@ void SysTick_Handler(void)
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
-
+  HAL_SYSTICK_IRQHandler();
   /* USER CODE END SysTick_IRQn 1 */
 }
 
@@ -222,9 +223,12 @@ void CAN_SCE_IRQHandler (void)
 	HAL_CAN_IRQHandler(&hcan);
 }
 
+void USART2_IRQHandler (void)
+{
 
+	HAL_UART_IRQHandler(&huart2);
 
-
+}
 
 void TIM6_DAC_IRQHandler(void)
 {
