@@ -16,6 +16,7 @@
   *
   ******************************************************************************
   */
+
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
@@ -62,24 +63,7 @@ static void MX_CAN_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
-void CAN_Tx(uint32_t CanID, uint8_t CanDLC, uint8_t CANmsg[]);
-void CAN_Rx(void);
-void CAN_Filter_Conifg(void);
-void Print_CAN_Frame(char CanFrameName[], uint32_t CanID, uint32_t CanDlc, uint8_t CanMsg[]);
-void HAL_CAN_TxMailbox0CompleteCallback(CAN_HandleTypeDef *hcan);
-void HAL_CAN_TxMailbox1CompleteCallback(CAN_HandleTypeDef *hcan);
-void HAL_CAN_TxMailbox2CompleteCallback(CAN_HandleTypeDef *hcan);
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan);
-//void HAL_CAN_RxFifo0FullCallback(CAN_HandleTypeDef *hcan);
-void HAL_CAN_ErrorCallback(CAN_HandleTypeDef *hcan);
-void ClearArray(uint8_t array[], uint32_t size);
-void Print_CAN_Frame(char CanFrameName[], uint32_t CanID, uint32_t CanDlc, uint8_t CANmsg[]);
-void parseFromUART(char CanFrame[]);
-uint8_t* convertToHex(char *string);
 void saveDataToFrame(CAN_MessageTypeDef canBuffer);
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart);
 
 /* USER CODE END PFP */
 
@@ -483,11 +467,7 @@ void CAN_Tx(uint32_t CanID, uint8_t CanDLC, uint8_t CANmsg[])
 		Error_Handler("CAN TX error");
 	}
 
-/* KAPI:
- *  ej, potrzebuje ramki z CANmsg[] do przerwania gdzie mi pisze po UART.
- * wymkiniłem żeby to przepisywać na chwile do zmiennej globalnej
- * masz jakiś pomysł jak to lepiej ogarnac bo teraz jest chyba tak se :/
-*/
+
 	for (int i=0; i < CanDLC; i++)
 	{
 		CANmsgPrintTx[i] = CANmsg[i]; // DWI: Only copy value of CANmsg to global variable for UART communication purposes.
@@ -689,6 +669,7 @@ void parseFromUART(char CanFrame[]) {
     }
     else if (strcmp(parserInitialBuffer, "RESET") == 0) {
         printf("Perform reset\n");
+        resetCANframes();
     }
     else if (strcmp(parserInitialBuffer, "FIL_CF") == 0) {
         printf("Set Filer\n");
@@ -717,20 +698,28 @@ uint8_t* convertToHex(char *string) {
 	    return val;
 }
 
-void saveDataToFrame(CAN_MessageTypeDef canBuffer)
+void resetCANframes (void)
 {
-
-	IPC_Ligths.ID = canBuffer.ID;
-	IPC_Ligths.DLC = canBuffer.DLC;
-
-	for(int i=0; i<IPC_Ligths.DLC;++i)
-	{
-		IPC_Ligths.CAN_Tx[i] = canBuffer.CAN_Tx[i];
-	}
-
-
+	// ToDo Set all default parameters for all CAN frames.
 }
 
+void saveDataToFrame(CAN_MessageTypeDef canBuffer)
+{
+	switch (canBuffer.ID)
+	{
+	case 0x2214000:
+		IPC_Ligths.DLC = canBuffer.DLC;
+		for(uint16_t i=0; i<canBuffer.DLC;++i) {
+				IPC_Ligths.CAN_Tx[i] = canBuffer.CAN_Tx[i];
+			}
+	case 0x4294000:
+		IPC_SpeedOdometerInfo.DLC = canBuffer.DLC;
+		for (uint16_t i=0; i<canBuffer.DLC;++i) {
+			IPC_SpeedOdometerInfo.CAN_Tx[i] = canBuffer.CAN_Tx[i];
+		}
+	//ToDo REST OF FRAMES
+	}
+}
 
 #ifdef  USE_FULL_ASSERT
 /**
