@@ -515,8 +515,6 @@ void Print_CAN_Frame(char CanFrameName[], uint32_t CanID, uint32_t CanDlc, uint8
 	 		HAL_Delay(10);
 	 		//Error_Handler();
 	 	 }
-
-
 }
 
 /**
@@ -550,7 +548,6 @@ void CAN_Tx(uint32_t CanID, uint8_t CanDLC, uint8_t CANmsg[])
 	{
 		Error_Handler("CAN TX error");
 	}
-
 
 	for (int i=0; i < CanDLC; i++)
 	{
@@ -633,6 +630,7 @@ void CAN_Rx(void)
   * @retval None
   */
 void CAN_Filter_Conifg(void)
+
 {
 	CAN_FilterTypeDef CANfilter;
 
@@ -653,43 +651,57 @@ void CAN_Filter_Conifg(void)
 	}
 }
 
+
 void HAL_CAN_TxMailbox0CompleteCallback(CAN_HandleTypeDef *hcan)
 {
-	Print_CAN_Frame("Tx0",CanTxHeader.ExtId, CanTxHeader.DLC, CANmsgPrintTx);
+	if (flag_UART_SEND_DATA == TRUE)
+	{
+		Print_CAN_Frame("Tx0",CanTxHeader.ExtId, CanTxHeader.DLC, CANmsgPrintTx);
+	}
 }
 
 void HAL_CAN_TxMailbox1CompleteCallback(CAN_HandleTypeDef *hcan)
 {
-	Print_CAN_Frame("Tx1",CanTxHeader.ExtId, CanTxHeader.DLC, CANmsgPrintTx);
+	if (flag_UART_SEND_DATA == TRUE)
+	{
+		Print_CAN_Frame("Tx1",CanTxHeader.ExtId, CanTxHeader.DLC, CANmsgPrintTx);
+	}
 }
 
 void HAL_CAN_TxMailbox2CompleteCallback(CAN_HandleTypeDef *hcan)
 {
-	Print_CAN_Frame("Tx2",CanTxHeader.ExtId, CanTxHeader.DLC, CANmsgPrintTx);
+	if (flag_UART_SEND_DATA == TRUE)
+	{
+		Print_CAN_Frame("Tx2",CanTxHeader.ExtId, CanTxHeader.DLC, CANmsgPrintTx);
+	}
 }
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
-	CAN_RxHeaderTypeDef CanRxHeader;
-	uint8_t CANmsgRCVbuffer[8] = {};
-
+	if (flag_UART_SEND_DATA == TRUE)
+	{
+		CAN_RxHeaderTypeDef CanRxHeader;
+		uint8_t CANmsgRCVbuffer[8] = {};
 	// DWI: wait for minimum one message in RX FIFO memory
 	// while(!(HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0)));
 
 	// DWI: Function to handle receiving messages.
-	if ((HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &CanRxHeader, CANmsgRCVbuffer)) != HAL_OK)
-	{
-		Error_Handler("CAN RX error");
+		if ((HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &CanRxHeader, CANmsgRCVbuffer)) != HAL_OK)
+		{
+			Error_Handler("CAN RX error");
+		}
+
+		Print_CAN_Frame("Rx ",CanRxHeader.ExtId, CanRxHeader.DLC, CANmsgRCVbuffer);
 	}
-	Print_CAN_Frame("Rx ",CanRxHeader.ExtId, CanRxHeader.DLC, CANmsgRCVbuffer);
 }
 
 void HAL_CAN_ErrorCallback(CAN_HandleTypeDef *hcan)
 {
 	char buffer[50] = {0};
 	sprintf(buffer, "************* CAN ERRROR *************\n\r");
-	HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+	//HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 }
+
 
 /* USER CODE END 4 */
 
@@ -706,8 +718,8 @@ void Error_Handler(char ErrorName[])
 
 	while(1)
 	{
-	HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
-	HAL_Delay(500);
+	//HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+	//HAL_Delay(500);
 	}
 
   /* USER CODE END Error_Handler_Debug */
