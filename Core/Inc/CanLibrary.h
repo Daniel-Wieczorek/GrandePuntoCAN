@@ -18,8 +18,8 @@
 typedef struct
 {
 	uint32_t ID;
-	uint8_t DLC;
-	uint8_t CAN_Tx[8];
+	uint8_t  DLC;
+	uint8_t  CAN_Tx[8];
 
 } CAN_MessageTypeDef;
 

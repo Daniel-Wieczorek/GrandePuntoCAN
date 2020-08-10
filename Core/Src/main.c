@@ -21,15 +21,18 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-
+#include "stm32f3xx_it.h"
+#include "CanLibrary.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "stm32f3xx_hal.h"
+#include "stm32f303xe.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <inttypes.h>
-#include "CanLibrary.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -39,6 +42,16 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define TRUE 1
+#define FALSE 0
+#define FIFO_BUFFER g_rxFifo;
+#define USART_HEADER_LENGTH 6
+#define USART_ID_LENGTH 7
+#define USART_DLC_LENGTH 1
+#define USART_MAX_MESSAGE_LENGTH 17
+#define USART_DLC_LOCATION 23
+#define LENGTH_CARRIGE_RETURN_SIGN 1
+#define MAX_BUFFER_LENGTH 70
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -51,8 +64,14 @@ CAN_HandleTypeDef hcan;
 TIM_HandleTypeDef htim6;
 TIM_HandleTypeDef htim7;
 UART_HandleTypeDef huart2;
+
 /* USER CODE BEGIN PV */
 CAN_TxHeaderTypeDef CanTxHeader;
+CAN_MessageTypeDef canUartBuffer;
+uint8_t timer200ms = 0;
+uint8_t timer1000ms = 0;
+uint8_t bufferUINT8[70];
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -63,26 +82,30 @@ static void MX_CAN_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
-void saveDataToFrame(CAN_MessageTypeDef canBuffer);
-
+void SystemClockConfig(void);
+void UART2_Init(void);
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart);
+void Clear_Array(uint8_t array[], uint16_t size);
+void Print_CAN_Frame(char CanFrameName[], uint32_t CanID, uint32_t CanDlc, uint8_t CANmsg[]);
+void Parse_From_UART(char CanFrame[]);
+uint8_t* Convert_To_HEX(char *string);
+void Save_Data_To_CAN_Frame(CAN_MessageTypeDef *canBuffer);
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 // CAN_MessageTypeDef CANsampleData;
-
 uint8_t CANmsg[8] = {0};
 uint8_t CANmsgPrintTx[8] = {0}; // char table only for printing from interrupts.
-uint8_t data_buffer[70];
-uint32_t count = 0;
+uint8_t data_buffer[MAX_BUFFER_LENGTH];
+uint16_t count = 0;
 uint8_t rcvd_data;
-uint8_t flag_UART_TX_COMPLETED = 0;
+uint8_t flag_UART_TX_COMPLETED = FALSE;
+uint8_t flag_UART_RX_COMPLETED = FALSE;
+uint8_t flag_UART_SEND_DATA = TRUE;
 CAN_MessageTypeDef canUartBuffer;
-/* NOT USED
-uint8_t CANmsg_KeyON[] = {0x50,0x10};
-uint8_t CANmsg_EnvCond[] = {0xAA,0x66,0x00,0x00};
- */
-
 /* USER CODE END 0 */
 
 /**
@@ -99,7 +122,6 @@ int main(void)
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-
 	HAL_Init();
 
   /* USER CODE BEGIN Init */
@@ -131,7 +153,7 @@ int main(void)
   {
 	  Error_Handler("CAN start error");
   }
-
+HAL_TIM_Base_Start_IT(&htim6);
 HAL_UART_Receive_IT(&huart2, &rcvd_data, 1); // przerwanie obslugujące wiadomosci przychodzace po UART.
 
   /* USER CODE END 2 */
@@ -140,48 +162,88 @@ HAL_UART_Receive_IT(&huart2, &rcvd_data, 1); // przerwanie obslugujące wiadomos
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  CAN_Tx(IPC_StatusBCM.ID, IPC_StatusBCM.DLC, IPC_StatusBCM.CAN_Tx);
-	  	HAL_Delay(50);
 
-	  CAN_Tx(IPC_Ligths.ID, IPC_Ligths.DLC, IPC_Ligths.CAN_Tx);
-	  	HAL_Delay(50);
+  if (flag_UART_SEND_DATA == TRUE)
+	  	  {
+		  if (timer200ms >= 1) // When 200ms elapses
+			  {
+			  	  /* TEST DATA 200ms */
+			CAN_Tx(IPC_StatusBCM.ID, IPC_StatusBCM.DLC, IPC_StatusBCM.CAN_Tx);
+	  	    HAL_Delay(10);
 
-	  CAN_Tx(IPC_Vehicle_Setup.ID, IPC_Vehicle_Setup.DLC, IPC_Vehicle_Setup.CAN_Tx);
-	  	HAL_Delay(50);
+	        CAN_Tx(IPC_Ligths.ID, IPC_Ligths.DLC, IPC_Ligths.CAN_Tx);
+	  	    HAL_Delay(10);
 
-	  CAN_Tx(STATUS_IPC.ID, STATUS_IPC.DLC, STATUS_IPC.CAN_Tx);
-	  	HAL_Delay(50);
-/*
-	CAN_Tx(IPC_StatusBCM.ID, IPC_StatusBCM.DLC, IPC_StatusBCM.CAN_Tx);
-	HAL_Delay(50);
+	        CAN_Tx(IPC_Vehicle_Setup.ID, IPC_Vehicle_Setup.DLC, IPC_Vehicle_Setup.CAN_Tx);
+	  	    HAL_Delay(10);
 
-	CAN_Tx(IPC_SeatBelts.ID, IPC_SeatBelts.DLC, IPC_SeatBelts.CAN_Tx);
-	HAL_Delay(50);
+	        CAN_Tx(STATUS_IPC.ID, STATUS_IPC.DLC, STATUS_IPC.CAN_Tx);
+	  	    HAL_Delay(10);
+        /*
+          CAN_Tx(IPC_StatusBCM.ID, IPC_StatusBCM.DLC, IPC_StatusBCM.CAN_Tx);
+          HAL_Delay(50);
 
-	CAN_Tx(IPC_EngineInfo.ID, IPC_EngineInfo.DLC, IPC_EngineInfo.CAN_Tx);
-	HAL_Delay(50);
+          CAN_Tx(IPC_SeatBelts.ID, IPC_SeatBelts.DLC, IPC_SeatBelts.CAN_Tx);
+          HAL_Delay(50);
 
-	CAN_Tx(IPC_StatusB_EPS.ID, IPC_StatusB_EPS.DLC, IPC_StatusB_EPS.CAN_Tx);
-	HAL_Delay(50);
+          CAN_Tx(IPC_EngineInfo.ID, IPC_EngineInfo.DLC, IPC_EngineInfo.CAN_Tx);
+          HAL_Delay(50);
 
-	CAN_Tx(IPC_StatusB_BSM.ID, IPC_StatusB_BSM.DLC, IPC_StatusB_BSM.CAN_Tx);
-	HAL_Delay(50);
+          CAN_Tx(IPC_StatusB_EPS.ID, IPC_StatusB_EPS.DLC, IPC_StatusB_EPS.CAN_Tx);
+          HAL_Delay(50);
 
-	CAN_Tx(IPC_SpeedOdometerInfo.ID, IPC_SpeedOdometerInfo.DLC, IPC_SpeedOdometerInfo.CAN_Tx);
-	HAL_Delay(50);
+          CAN_Tx(IPC_StatusB_BSM.ID, IPC_StatusB_BSM.DLC, IPC_StatusB_BSM.CAN_Tx);
+          HAL_Delay(50);
 
-	CAN_Tx(IPC_Ligths.ID, IPC_Ligths.DLC, IPC_Ligths.CAN_Tx);
-	HAL_Delay(50);
+          CAN_Tx(IPC_SpeedOdometerInfo.ID, IPC_SpeedOdometerInfo.DLC, IPC_SpeedOdometerInfo.CAN_Tx);
+          HAL_Delay(50);
 
-	CAN_Tx(IPC_HeartBeat.ID, IPC_HeartBeat.DLC, IPC_HeartBeat.CAN_Tx);
-	HAL_Delay(50);
+          CAN_Tx(IPC_Ligths.ID, IPC_Ligths.DLC, IPC_Ligths.CAN_Tx);
+          HAL_Delay(50);
 
-	HAL_Delay(20);
+          CAN_Tx(IPC_HeartBeat.ID, IPC_HeartBeat.DLC, IPC_HeartBeat.CAN_Tx);
+          HAL_Delay(50);
 
-	Print_CAN_Frame("Tx", IPC_Ligths.ID, IPC_Ligths.DLC, IPC_Ligths.CAN_Tx);
-	HAL_Delay(1000);
+          HAL_Delay(20);
 
-*/
+          Print_CAN_Frame("Tx", IPC_Ligths.ID, IPC_Ligths.DLC, IPC_Ligths.CAN_Tx);
+          HAL_Delay(1000);
+
+        */
+			  	 timer200ms = 0;
+
+			  }
+		  else if (timer1000ms >= 5) // When 1000ms elapses
+			  {
+			  	  /* TEST DATA 1000ms */
+				  
+
+				  timer200ms = 0;
+				  timer1000ms = 0;
+
+			  }
+	  	 }
+    while((flag_UART_RX_COMPLETED && flag_UART_TX_COMPLETED))
+	  		{
+	  			if (data_buffer[0] == 'S' || data_buffer[0] =='E') // if received data is START / END tx Transmission:
+	  			{
+	  				Clear_Array(data_buffer, (uint16_t)(strlen(data_buffer)));
+	  				count = 0;
+	  				flag_UART_RX_COMPLETED = FALSE;
+	  				flag_UART_TX_COMPLETED = FALSE;
+	  				HAL_UART_Receive_IT(&huart2, &rcvd_data, 1);
+	  			}
+	  			else
+	  			{
+					HAL_Delay(10); // Wait for message being sent fully
+					Parse_From_UART(data_buffer);
+					Save_Data_To_CAN_Frame(&canUartBuffer);
+					Clear_Array(data_buffer, MAX_BUFFER_LENGTH);
+					count = 0;
+					flag_UART_RX_COMPLETED = FALSE;
+					flag_UART_TX_COMPLETED = FALSE;
+	  			}
+	  		}
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -287,26 +349,26 @@ static void MX_TIM6_Init(void)
 
   /* USER CODE END TIM6_Init 0 */
 
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
+//  TIM_MasterConfigTypeDef sMasterConfig = {0};
 
   /* USER CODE BEGIN TIM6_Init 1 */
 
-  /* USER CODE END TIM6_Init 1 */
+   /* USER CODE END TIM6_Init 1 */
   htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 0;
+  htim6.Init.Prescaler = 224; // 200ms Interrupt
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 0;
-  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  htim6.Init.Period = (63999);
+ htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
     Error_Handler("TIMER 6 initialization error");
   }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
-  {
-	Error_Handler("TIMER 6 configuration error");
-  }
+ // sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+ // sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+ // if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+ // {
+//	Error_Handler("TIMER 6 configuration error");
+ // }
   /* USER CODE BEGIN TIM6_Init 2 */
 
   /* USER CODE END TIM6_Init 2 */
@@ -320,7 +382,7 @@ static void MX_TIM6_Init(void)
   */
 static void MX_TIM7_Init(void)
 {
-
+#if 0
   /* USER CODE BEGIN TIM7_Init 0 */
 
   /* USER CODE END TIM7_Init 0 */
@@ -348,7 +410,7 @@ static void MX_TIM7_Init(void)
   /* USER CODE BEGIN TIM7_Init 2 */
 
   /* USER CODE END TIM7_Init 2 */
-
+#endif
 }
 
 /**
@@ -433,14 +495,28 @@ static void MX_GPIO_Init(void)
   */
 void Print_CAN_Frame(char CanFrameName[], uint32_t CanID, uint32_t CanDlc, uint8_t CANmsg[])
 {
-	char buffer[100] = {0};
-	sprintf(buffer,"CAN_%s| ID:0x%02X| DLC:%d| FRAME: ",CanFrameName,(unsigned int)CanID,(unsigned int)CanDlc); // DWI: Initialize first few elements of frame
-	for (int i=0; i<CanDlc; i++)
-	{
-		sprintf(buffer+strlen(buffer),"%02X ",*(CANmsg+i)); // print all DATA elements one by one
-	}
-	sprintf(buffer+strlen(buffer),"\n\r"); // add in the end of each frame new line and ....
-	HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+	char buffer[70] = {0};
+	sprintf(buffer,"CAN_%s| ID:0x%02X| DLC:%d| FRAME: ",CanFrameName,(unsigned int)CanID,(unsigned int)CanDlc);
+	for (uint16_t i = 0; i<CanDlc; i++)
+		{
+			sprintf(buffer+strlen(buffer),"%02X ",*(CANmsg+i)); // SAVE all DATA elements one by one
+		}
+	sprintf(buffer+strlen(buffer),"\n\r");
+
+	/* WORKAROUND: HAL_UART_Transmit_IT have probelms to accept char array ( even typecased by memcpy() ). Manual typecasting implemented */
+	Clear_Array(bufferUINT8, 70);
+	for (uint8_t i = 0U; i<strlen(buffer);i++)
+		{
+			bufferUINT8[i] = (uint8_t)buffer[i];
+		}
+
+	if (HAL_UART_Transmit_IT(&huart2, bufferUINT8, strlen(buffer)) != HAL_OK)
+	 	 {
+	 		HAL_Delay(10);
+	 		//Error_Handler();
+	 	 }
+
+
 }
 
 /**
@@ -451,6 +527,8 @@ void Print_CAN_Frame(char CanFrameName[], uint32_t CanID, uint32_t CanDlc, uint8
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
+	timer200ms=timer200ms+1;
+	timer1000ms=timer1000ms+1;
 
 }
 
@@ -486,12 +564,32 @@ void CAN_Tx(uint32_t CanID, uint8_t CanDLC, uint8_t CANmsg[])
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-	if (rcvd_data == '\r') {
+	if (rcvd_data == '\r')
+	{
 		data_buffer[count++] = '\r';
+		flag_UART_RX_COMPLETED = TRUE;
+		if (data_buffer[0] == 'S' && data_buffer[1] == 'T')
+			{
+				flag_UART_SEND_DATA = TRUE;
+			}
+		else if ((data_buffer[0] == 'E' && data_buffer[1] == 'D') || (data_buffer[0] == 'E' && data_buffer[1] == 'E'))
+			{
+				flag_UART_SEND_DATA = FALSE;
+				HAL_UART_Transmit_IT(&huart2, data_buffer, count);
+				while (HAL_UART_GetState(&huart2) != HAL_UART_STATE_BUSY_TX);
+				count = 0;
+				HAL_UART_Receive_IT(&huart2, &rcvd_data, 1);
+				return;
+			}
+
+		/* Waiting for ready of USART 2 port. Without waiting (retrasmission) code working better */
+		// while (HAL_UART_GetState(&huart2) != HAL_UART_STATE_READY);
 		if (HAL_UART_Transmit_IT(&huart2, data_buffer, count) != HAL_OK)
 		{
-			Error_Handler("Error");
+			 HAL_Delay(10); // if HAL_BUSY wait 10ms and wait for retransmission
+			// Error_Handler(); // if HAL_ERROR
 		}
+		count = 0;
 	}
 	else
 	{
@@ -502,15 +600,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-	if (count>0)
-	{
-		parseFromUART(data_buffer);
-		// ToDo SaveData to frame
-		ClearArray(data_buffer, 70);
-		count = 0;
-	}
-	flag_UART_TX_COMPLETED = 1;
-
+		flag_UART_TX_COMPLETED = TRUE;
 }
 
 /**
@@ -623,7 +713,7 @@ void Error_Handler(char ErrorName[])
   /* USER CODE END Error_Handler_Debug */
 }
 
-void ClearArray(uint8_t array[], uint32_t size)
+void Clear_Array(uint8_t array[], uint16_t size)
 {
 	for (int i = 0; i < size; ++i)
 	{
@@ -631,99 +721,100 @@ void ClearArray(uint8_t array[], uint32_t size)
 	}
 }
 
-void parseFromUART(char CanFrame[]) {
-    char parserInitialBuffer[6] = {0};
+void Parse_From_UART(char CanFrame[]) {
+    char headerBuffer[USART_HEADER_LENGTH+LENGTH_CARRIGE_RETURN_SIGN] = {0};
     uint8_t index = 0;
+    memcpy(headerBuffer, CanFrame, USART_HEADER_LENGTH);
 
-    while (CanFrame[index] != '|') {
-		parserInitialBuffer[index] = CanFrame[index];
-		index++;
-    }
-    parserInitialBuffer[index] = '\0';
-    if (strcmp(parserInitialBuffer, "CAN_Tx") == 0) {
+    if (strcmp(headerBuffer, "CAN_Tx") == 0)
+    {
     	uint8_t bufferIndex = 0;
-        char parserIdBuffer[8] = {0};
-        char parserDlcBuffer[1] = {0};
-        char parserMessageBuffer[17] = {0};
-        uint8_t *p;
+        char idBuffer[USART_ID_LENGTH] = {0};
+        char dlcBuffer[USART_DLC_LENGTH] = {0};
+        char messageBuffer[USART_MAX_MESSAGE_LENGTH+LENGTH_CARRIGE_RETURN_SIGN] = {0};
+        uint8_t *pDataConverter;
 
-        for ( ; CanFrame[index]!= '\r'; ++index) {
-            if (index > 12 && index <= 19) {
-                parserIdBuffer[bufferIndex] = CanFrame[index];
-                bufferIndex++;
-            }
-            else if (index == 26) {
-                parserDlcBuffer[0] = CanFrame[index];
-                bufferIndex = 0;
-            }
-            else if (index >= 36) {
-                if (CanFrame[index] == ' ')
-                    continue;
-                else {
-                    parserMessageBuffer[bufferIndex] = CanFrame[index];
-                    bufferIndex++;
-                }
-            }
-        }
-        canUartBuffer.DLC = parserDlcBuffer[0] - '0';
-        sscanf(parserIdBuffer, "%lX", &canUartBuffer.ID);
-
-        p = convertToHex(parserMessageBuffer);
-        for (size_t var = 0; var < canUartBuffer.DLC; var++) {
-        	canUartBuffer.CAN_Tx[var] = *(p+var);
-        }
-    }
-    else if (strcmp(parserInitialBuffer, "RESET") == 0) {
-        printf("Perform reset\n");
-        resetCANframes();
-    }
-    else if (strcmp(parserInitialBuffer, "FIL_CF") == 0) {
-        printf("Set Filer\n");
-    }
-    else {
-    	printf("Error\n");
-    }
-}
-
-uint8_t* convertToHex(char *string) {
-	    static uint8_t val[MAX_CAN_MESSAGE_SIZE];
-	    memset( val, 0, MAX_CAN_MESSAGE_SIZE*sizeof(uint8_t));
-
-	    uint8_t index = 0;
-	    while (*string) {
-	        // get current character then increment
-	        uint8_t byte = *string++;
-	        // transform hex character to the 4bit equivalent number, using the ascii table indexes
-	        if (byte >= '0' && byte <= '9') byte = byte - '0';
-	        else if (byte >= 'a' && byte <='f') byte = byte - 'a' + 10;
-	        else if (byte >= 'A' && byte <='F') byte = byte - 'A' + 10;
-	        // shift 4 to make space for new digit, and add the 4 bits of the new digit
-	        val[index/2] = (val[index/2] << 4) | (byte & 0xF);
-	        index++;
-	    }
-	    return val;
-}
-
-void resetCANframes (void)
-{
-	// ToDo Set all default parameters for all CAN frames.
-}
-
-void saveDataToFrame(CAN_MessageTypeDef canBuffer)
-{
-	switch (canBuffer.ID)
-	{
-	case 0x2214000:
-		IPC_Ligths.DLC = canBuffer.DLC;
-		for(uint16_t i=0; i<canBuffer.DLC;++i) {
-				IPC_Ligths.CAN_Tx[i] = canBuffer.CAN_Tx[i];
+        memcpy(idBuffer,CanFrame+11,USART_ID_LENGTH);
+        dlcBuffer[0] = CanFrame[24];
+		for (index = 35; CanFrame[index] != '\r'; ++index)
+		{
+			if (CanFrame[index] == ' ')
+				continue;
+			else
+			{
+				messageBuffer[bufferIndex] = CanFrame[index];
+				bufferIndex++;
 			}
-	case 0x4294000:
-		IPC_SpeedOdometerInfo.DLC = canBuffer.DLC;
-		for (uint16_t i=0; i<canBuffer.DLC;++i) {
-			IPC_SpeedOdometerInfo.CAN_Tx[i] = canBuffer.CAN_Tx[i];
 		}
-	//ToDo REST OF FRAMES
+        canUartBuffer.DLC = dlcBuffer[0] - '0';
+        sscanf(idBuffer, "%lX", &canUartBuffer.ID);
+        pDataConverter = Convert_To_HEX(messageBuffer);
+        for (size_t var = 0; var < canUartBuffer.DLC; var++)
+        {
+        	canUartBuffer.CAN_Tx[var] = *(pDataConverter+var);
+        }
+    }
+		else if (strcmp(headerBuffer, "_RESET") == 0)
+		{
+			NVIC_SystemReset();								//Perorm reset of a Nucleo board
+		}
+		else if (strcmp(headerBuffer, "FIL_CF") == 0)
+		{
+			printf("Set Filer\n"); // ToDo: Perform some basic operations for filters
+		}
+		else
+		{
+			//Error_Handler();
+		}
+}
+
+uint8_t* Convert_To_HEX(char *string) {
+	static uint8_t val[MAX_CAN_MESSAGE_SIZE];
+	memset(val, 0, MAX_CAN_MESSAGE_SIZE * sizeof(uint8_t));
+
+	uint8_t index = 0;
+	while (*string) {
+		// get current character then increment
+		uint8_t byte = *string++;
+		// transform hex character to the 4bit equivalent number, using the ascii table indexes
+		if (byte >= '0' && byte <= '9')
+			byte = byte - '0';
+		else if (byte >= 'a' && byte <= 'f')
+			byte = byte - 'a' + 10;
+		else if (byte >= 'A' && byte <= 'F')
+			byte = byte - 'A' + 10;
+		// shift 4 to make space for new digit, and add the 4 bits of the new digit
+		val[index / 2] = (val[index / 2] << 4) | (byte & 0xF);
+		index++;
+	}
+	return val;
+}
+
+void Save_Data_To_CAN_Frame(CAN_MessageTypeDef *canBuffer)
+{
+	// ToDo: switch case implementation
+
+	switch (canBuffer->ID) {
+	case (0x2214000):									// IPC Ligths
+		IPC_Ligths.DLC = canBuffer->DLC;
+		for (uint8_t i = 0; i < IPC_Ligths.DLC; ++i) {
+			IPC_Ligths.CAN_Tx[i] = canBuffer->CAN_Tx[i];
+		}
+		break;
+	case (0x4294000): 									// IPC SpeedOdometerInfo
+			IPC_SpeedOdometerInfo.DLC = canBuffer->DLC;
+			for (uint8_t i = 0; i < IPC_SpeedOdometerInfo.DLC; ++i) {
+				IPC_SpeedOdometerInfo.CAN_Tx[i] = canBuffer->CAN_Tx[i];
+			}
+			break;
+	case (0x6214000):									// IPC StatusBCM
+			IPC_StatusBCM.DLC = canBuffer->DLC;
+			for (uint8_t i = 0; i < IPC_StatusBCM.DLC; ++i) {
+				IPC_StatusBCM.CAN_Tx[i] = canBuffer->CAN_Tx[i];
+			}
+			break;
+	default:
+		break;
 	}
 }
 

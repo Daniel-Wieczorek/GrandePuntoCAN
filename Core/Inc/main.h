@@ -54,24 +54,15 @@ extern "C" {
 
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(char ErrorName[]);
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
 void CAN_Tx(uint32_t CanID, uint8_t CanDLC, uint8_t CANmsg[]);
 void CAN_Rx(void);
 void CAN_Filter_Conifg(void);
-void Print_CAN_Frame(char CanFrameName[], uint32_t CanID, uint32_t CanDlc, uint8_t CanMsg[]);
 void HAL_CAN_TxMailbox0CompleteCallback(CAN_HandleTypeDef *hcan);
 void HAL_CAN_TxMailbox1CompleteCallback(CAN_HandleTypeDef *hcan);
 void HAL_CAN_TxMailbox2CompleteCallback(CAN_HandleTypeDef *hcan);
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan);
 //void HAL_CAN_RxFifo0FullCallback(CAN_HandleTypeDef *hcan);
 void HAL_CAN_ErrorCallback(CAN_HandleTypeDef *hcan);
-void ClearArray(uint8_t array[], uint32_t size);
-void Print_CAN_Frame(char CanFrameName[], uint32_t CanID, uint32_t CanDlc, uint8_t CANmsg[]);
-void parseFromUART(char CanFrame[]);
-uint8_t* convertToHex(char *string);
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart);
-void resetCANframes (void);
 
 /* USER CODE BEGIN EFP */
 
