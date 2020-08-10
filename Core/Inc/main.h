@@ -17,6 +17,8 @@
   *
   ******************************************************************************
   */
+#pragma once
+
 /* USER CODE END Header */
 
 /* Define to prevent recursive inclusion -------------------------------------*/
@@ -52,6 +54,15 @@ extern "C" {
 
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(char ErrorName[]);
+void CAN_Tx(uint32_t CanID, uint8_t CanDLC, uint8_t CANmsg[]);
+void CAN_Rx(void);
+void CAN_Filter_Conifg(void);
+void HAL_CAN_TxMailbox0CompleteCallback(CAN_HandleTypeDef *hcan);
+void HAL_CAN_TxMailbox1CompleteCallback(CAN_HandleTypeDef *hcan);
+void HAL_CAN_TxMailbox2CompleteCallback(CAN_HandleTypeDef *hcan);
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan);
+//void HAL_CAN_RxFifo0FullCallback(CAN_HandleTypeDef *hcan);
+void HAL_CAN_ErrorCallback(CAN_HandleTypeDef *hcan);
 
 /* USER CODE BEGIN EFP */
 
@@ -72,6 +83,7 @@ void Error_Handler(char ErrorName[]);
 #define TCK_GPIO_Port GPIOA
 #define SWO_Pin GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
+#define MAX_CAN_MESSAGE_SIZE 8
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
