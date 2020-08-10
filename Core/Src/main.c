@@ -140,6 +140,18 @@ HAL_UART_Receive_IT(&huart2, &rcvd_data, 1); // przerwanie obslugujące wiadomos
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  CAN_Tx(IPC_StatusBCM.ID, IPC_StatusBCM.DLC, IPC_StatusBCM.CAN_Tx);
+	  	HAL_Delay(50);
+
+	  CAN_Tx(IPC_Ligths.ID, IPC_Ligths.DLC, IPC_Ligths.CAN_Tx);
+	  	HAL_Delay(50);
+
+	  CAN_Tx(IPC_Vehicle_Setup.ID, IPC_Vehicle_Setup.DLC, IPC_Vehicle_Setup.CAN_Tx);
+	  	HAL_Delay(50);
+
+	  CAN_Tx(STATUS_IPC.ID, STATUS_IPC.DLC, STATUS_IPC.CAN_Tx);
+	  	HAL_Delay(50);
+/*
 	CAN_Tx(IPC_StatusBCM.ID, IPC_StatusBCM.DLC, IPC_StatusBCM.CAN_Tx);
 	HAL_Delay(50);
 
@@ -166,16 +178,10 @@ HAL_UART_Receive_IT(&huart2, &rcvd_data, 1); // przerwanie obslugujące wiadomos
 
 	HAL_Delay(20);
 
-		Print_CAN_Frame("Tx", IPC_Ligths.ID, IPC_Ligths.DLC, IPC_Ligths.CAN_Tx);
-		HAL_Delay(1000);
+	Print_CAN_Frame("Tx", IPC_Ligths.ID, IPC_Ligths.DLC, IPC_Ligths.CAN_Tx);
+	HAL_Delay(1000);
 
-	/*
-	  CAN_Tx(0xC3D4000,2,CANmsg_KeyON);
-	  HAL_Delay(100);
-	  CAN_Tx(0x63D4000,4,CANmsg_EnvCond);
-	  HAL_Delay(100);
-	*/
-
+*/
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
