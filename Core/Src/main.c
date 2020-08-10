@@ -238,6 +238,7 @@ HAL_UART_Receive_IT(&huart2, &rcvd_data, 1); // przerwanie obslugujące wiadomos
 					HAL_Delay(10); // Wait for message being sent fully
 					Parse_From_UART(data_buffer);
 					Save_Data_To_CAN_Frame(&canUartBuffer);
+					CAN_Tx(canUartBuffer.ID, canUartBuffer.DLC,canUartBuffer.CAN_Tx);
 					Clear_Array(data_buffer, MAX_BUFFER_LENGTH);
 					count = 0;
 					flag_UART_RX_COMPLETED = FALSE;
@@ -823,6 +824,12 @@ void Save_Data_To_CAN_Frame(CAN_MessageTypeDef *canBuffer)
 			IPC_StatusBCM.DLC = canBuffer->DLC;
 			for (uint8_t i = 0; i < IPC_StatusBCM.DLC; ++i) {
 				IPC_StatusBCM.CAN_Tx[i] = canBuffer->CAN_Tx[i];
+			}
+			break;
+	case (0x6314003):									// IPC StatusBCM
+				STATUS_IPC.DLC = canBuffer->DLC;
+			for (uint8_t i = 0; i < STATUS_IPC.DLC; ++i) {
+				STATUS_IPC.CAN_Tx[i] = canBuffer->CAN_Tx[i];
 			}
 			break;
 	default:
