@@ -106,6 +106,7 @@ uint8_t flag_UART_TX_COMPLETED = FALSE;
 uint8_t flag_UART_RX_COMPLETED = FALSE;
 uint8_t flag_UART_SEND_DATA = TRUE;
 CAN_MessageTypeDef canUartBuffer;
+HAL_UART_StateTypeDef state;
 /* USER CODE END 0 */
 
 /**
@@ -235,10 +236,10 @@ HAL_UART_Receive_IT(&huart2, &rcvd_data, 1); // przerwanie obslugujące wiadomos
 	  			}
 	  			else
 	  			{
-					HAL_Delay(10); // Wait for message being sent fully
-					Parse_From_UART(data_buffer);
-					Save_Data_To_CAN_Frame(&canUartBuffer);
+				//	HAL_Delay(10); // Wait for message being sent fully
+				//	Parse_From_UART(data_buffer);
 					CAN_Tx(canUartBuffer.ID, canUartBuffer.DLC,canUartBuffer.CAN_Tx);
+					Save_Data_To_CAN_Frame(&canUartBuffer);
 					Clear_Array(data_buffer, MAX_BUFFER_LENGTH);
 					count = 0;
 					flag_UART_RX_COMPLETED = FALSE;
@@ -581,7 +582,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			}
 
 		/* Waiting for ready of USART 2 port. Without waiting (retrasmission) code working better */
-		// while (HAL_UART_GetState(&huart2) != HAL_UART_STATE_READY);
+		while ((HAL_UART_GetState(&huart2) != HAL_UART_STATE_READY) && (flag_UART_TX_COMPLETED != 1));
 		if (HAL_UART_Transmit_IT(&huart2, data_buffer, count) != HAL_OK)
 		{
 			 HAL_Delay(10); // if HAL_BUSY wait 10ms and wait for retransmission
@@ -655,7 +656,7 @@ void CAN_Filter_Conifg(void)
 
 void HAL_CAN_TxMailbox0CompleteCallback(CAN_HandleTypeDef *hcan)
 {
-	if (flag_UART_SEND_DATA == TRUE)
+	if (1)
 	{
 		Print_CAN_Frame("Tx0",CanTxHeader.ExtId, CanTxHeader.DLC, CANmsgPrintTx);
 	}
@@ -663,7 +664,7 @@ void HAL_CAN_TxMailbox0CompleteCallback(CAN_HandleTypeDef *hcan)
 
 void HAL_CAN_TxMailbox1CompleteCallback(CAN_HandleTypeDef *hcan)
 {
-	if (flag_UART_SEND_DATA == TRUE)
+	if (1)
 	{
 		Print_CAN_Frame("Tx1",CanTxHeader.ExtId, CanTxHeader.DLC, CANmsgPrintTx);
 	}
@@ -671,7 +672,7 @@ void HAL_CAN_TxMailbox1CompleteCallback(CAN_HandleTypeDef *hcan)
 
 void HAL_CAN_TxMailbox2CompleteCallback(CAN_HandleTypeDef *hcan)
 {
-	if (flag_UART_SEND_DATA == TRUE)
+	if (1)
 	{
 		Print_CAN_Frame("Tx2",CanTxHeader.ExtId, CanTxHeader.DLC, CANmsgPrintTx);
 	}
@@ -693,6 +694,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 		}
 
 		Print_CAN_Frame("Rx ",CanRxHeader.ExtId, CanRxHeader.DLC, CANmsgRCVbuffer);
+		HAL_Delay(5);
 	}
 }
 

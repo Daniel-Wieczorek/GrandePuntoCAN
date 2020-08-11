@@ -32,7 +32,16 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN Define */
- 
+
+/* INTERUPTS PRIORITIES */
+
+#define IRQ_USB_HP_CAN_TX	2
+#define IRQ_USB_LP_CAN_RX0	6
+#define IRQ_CAN_RX1 		6
+#define IRQ_CAN_SCE			2
+#define IRQ_TIM6_DAC		8
+#define IRQ_USART2			4
+
 /* USER CODE END Define */
 
 /* Private macro -------------------------------------------------------------*/
@@ -122,10 +131,10 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan)
 
   /* USER CODE BEGIN CAN_MspInit 1 */
     // DWI: Enable innterrupts for CAN
-    HAL_NVIC_SetPriority(USB_HP_CAN_TX_IRQn, 15, 0);
-    HAL_NVIC_SetPriority(USB_LP_CAN_RX0_IRQn, 15, 0);
-    HAL_NVIC_SetPriority(CAN_RX1_IRQn, 15, 0);
-    HAL_NVIC_SetPriority(CAN_SCE_IRQn, 15, 0);
+    HAL_NVIC_SetPriority(USB_HP_CAN_TX_IRQn, IRQ_USB_HP_CAN_TX, 0);
+    HAL_NVIC_SetPriority(USB_LP_CAN_RX0_IRQn, IRQ_USB_LP_CAN_RX0, 0);
+    HAL_NVIC_SetPriority(CAN_RX1_IRQn, IRQ_CAN_RX1, 0);
+    HAL_NVIC_SetPriority(CAN_SCE_IRQn, IRQ_CAN_SCE, 0);
 
     HAL_NVIC_EnableIRQ(USB_HP_CAN_TX_IRQn);
     HAL_NVIC_EnableIRQ(USB_LP_CAN_RX0_IRQn);
@@ -182,7 +191,7 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
     /* Peripheral clock enable */
     __HAL_RCC_TIM6_CLK_ENABLE();
     /* TIM6 interrupt Init */
-    HAL_NVIC_SetPriority(TIM6_DAC_IRQn, 8, 0);
+    HAL_NVIC_SetPriority(TIM6_DAC_IRQn, IRQ_TIM6_DAC, 0);
     HAL_NVIC_EnableIRQ(TIM6_DAC_IRQn);
   /* USER CODE BEGIN TIM6_MspInit 1 */
   /* USER CODE END TIM6_MspInit 1 */
@@ -270,7 +279,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
 	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
   
  /* USART2 interrupt Init */
-    HAL_NVIC_SetPriority(USART2_IRQn, 1, 0);
+    HAL_NVIC_SetPriority(USART2_IRQn, IRQ_USART2, 0);
     HAL_NVIC_EnableIRQ(USART2_IRQn);
   /* USER CODE BEGIN USART2_MspInit 1 */
   }

@@ -46,6 +46,7 @@ extern CAN_HandleTypeDef hcan;
 extern TIM_HandleTypeDef htim6;
 extern TIM_HandleTypeDef htim7;
 extern UART_HandleTypeDef huart2;
+extern flag_UART_SEND_DATA;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -210,7 +211,10 @@ void USB_HP_CAN_TX_IRQHandler (void)
 
 void USB_LP_CAN_RX0_IRQHandler (void)
 {
+	if (flag_UART_SEND_DATA == 1)
+		{
 	HAL_CAN_IRQHandler(&hcan);
+		}
 }
 
 void CAN_RX1_IRQHandler (void)
